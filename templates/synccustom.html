@@ -1,0 +1,153 @@
+{% extends "basic.html" %}
+{% block content %}
+    <div>
+	<font style="color:red;font-weight:bold;"><p>友情提示：在第一次部署项目或者更新基础镜像时才需要进行构建和同步。其他时间，只需要“部署代码”即可。如果是第一次部署项目，需要先部署docker环境，然后再"部署代码"</font>
+    </div>
+    <div class="col-sm-15" style="height: 85%">
+        <div class="ibox float-e-margins">
+                <table class="table table-striped table-bordered table-hover " id="editable" style="text-align: center">
+                    <thead align="center">
+                    <tr>
+                        <th>项目</th>
+                        <th>项目类型</th>
+                        <th>当前版本</th>
+                        <th>创建时间</th>
+                        <th>构建时间</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for data in datas %}
+                        <form id="j-tag-form-{{ data.pro_sign }}">
+                        <tr>
+                            <td>{{ data.pro_name }}</td>
+			    {% if data.pro_type == 2 %}
+                            	<td>base</td>
+                            {% elif data.pro_type == 4 %}
+                            	<td>node</td>
+                            {% elif data.pro_type == 5 %}
+                            	<td>employee</td>
+			    {% else %}
+				<td>ats</td>
+			    {% endif %}
+                            <td >{{ data.code_branch }}</td>
+                            <td>{{ data.created_at }}</td>
+                    	    <td id="ctime{{ data.id }}">{{ data.build_at }}</td>
+			    {% if data.build_stat != 1 %}
+                                <td><span data-id ="{{data.pro_sign}}" onclick="build(event)" class="btn btn-primary ">构建</span> </td>
+			    {% else %}
+			    	{% if data.deploy_stat == 1 %}
+				<td><span data-id ="{{data.pro_sign}}" data-env="pro" onclick="sync(event)" class="btn btn-primary ">上线</span> <span data-id ="{{data.pro_sign}}" onclick="build(event)" class="btn btn-primary ">重新构建</span></td>
+			    	{% elif data.deploy_stat == 2 %}
+				<td><span data-id ="{{data.pro_sign}}" data-env="rebuild" onclick="build(event)" class="btn btn-primary ">重新构建</span></td>
+			    	{% elif data.deploy_stat == 0 %}
+				<td><span data-id ="{{data.pro_sign}}" data-env="test" onclick="sync(event)" class="btn btn-primary ">提测</span> <span data-id ="{{data.pro_sign}}" onclick="build(event)" class="btn btn-primary ">重新构建</span></td>
+				{% else %}
+				<td><span data-id ="{{data.pro_sign}}" data-env="test" onclick="sync(event)" class="btn btn-primary ">提测</span> <span data-id ="{{data.pro_sign}}" data-env="pro" onclick="sync(event)" class="btn btn-primary ">上线</span> <span data-id ="{{data.pro_sign}}" onclick="build(event)" class="btn btn-primary ">重新构建</span></td>
+				{% endif %}
+			    {% endif %}
+			    </tr>
+                        <input type="hidden" name="tagsign" value="{{ data.pro_sign }}">
+                        <input type="hidden" name="proname" value="{{ data.pro_name }}">
+                        <input type="hidden" name="codebranch" value="{{ data.code_branch }}">
+                        <input type="hidden" name="protype" value="{{ data.pro_type }}">
+                     </form>
+                    {% endfor %}
+                </table>
+                <div>
+                {% if curPage != 1 and curPage >= 2 %}
+                    <a href="?curPage={{ curPage }}&&pageType=pageUp">上一页</a>
+                {% endif %}
+                {% if totalPage >= curPage+5 %}
+                    {% for page in range(curPage,5)%}
+                        <a href="?curPage={{ page }}">{{ page }}</a>
+                    {% endfor %}
+                {% elif totalPage > 5 %}
+                    {% for page in range(totalPage-5,totalPage+1)%}
+                        <a href="?curPage={{ page }}">{{ page }}</a>
+                    {% endfor %}
+                {% else %}
+		    {% for page in range(1,totalPage+1)%}
+                        <a href="?curPage={{ page }}">{{ page }}</a>
+                    {% endfor %}
+                {% endif %}
+                {% if curPage != totalPage %}
+                   <a href="?curPage={{ curPage }}&&pageType=pageDown">下一页</a>
+                {% endif %}
+                </div>
+
+	    <div id='deployinfo'></div>
+            {% if err_msg[0] %}
+                <font color="red"><h4>{{ err_msg[1] }}</h4></font>
+            {% else  %}
+                <font color="green"><h4>{{ err_msg[1] }}</h4></font>
+            {% endif %}
+        </div>
+    </div>
+    </div>
+    <script type="text/javascript">
+        function build(e) {
+	    var event = e ;
+		var murl='http://' + window.location.hostname+':8080/publish/api/buildcustom/';
+		var id = event.target.getAttribute("data-id");
+	    var datas=$('#j-tag-form-' + id).serializeArray();
+	    var time=new Date();
+	    var curtime=time.getFullYear() + "-" + time.getMonth() + "-" + time.getDate() + " " + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds();
+    	    $.ajax({ 
+                type: "POST", 
+                data: datas,
+                dataType: "JSON", 
+                url: murl,
+		beforeSend: function(XMLHttpRequest){
+		    $('#deployinfo').html('<font color="green">程序员哥哥正在努力搬砖【'+datas[1]['value']+'】</font><br><font color="green">小主请耐心等待....</font>');
+		},
+                success: function(results) {
+					event.target.setAttribute("data-id",results.id);
+                   if (results.stat == '1') {
+                           window.location.href='/publish/deploycustom/';
+                   } else {
+			   $('#deployinfo').html('<font color="red">构建失败！小哥哥要挨揍咯！</font>');
+                   }
+                },
+		error: function(XMLHttpRequest,textStatus,errorThrown){
+		   alert('error.状态文本值：'+textStatus+" 异常信息："+errorThrown);
+		}
+            });
+        }
+          function sync(e) {
+              var event = e ;
+              var murl='http://' + window.location.hostname+':8080/publish/api/asynccustom/';
+              var id = event.target.getAttribute("data-id");
+              var genv = event.target.getAttribute("data-env");
+              var envjson = {"name":"genv","value":genv};
+              var datas=$('#j-tag-form-' + id).serializeArray();
+              var redicturl='http://' + window.location.hostname+':8080/publish/deploycustom/';
+              datas.push(envjson);
+              $.ajax({ 
+                  type: "POST", 
+                  data: datas,
+                  dataType: "JSON", 
+                  url: murl,
+                  beforeSend: function(XMLHttpRequest){
+                      $('#deployinfo').html('<font color="green">友情提示：正在部署,小主请耐心等待......</font>');
+                  },
+                  success: function(results) {
+                     if (results.stat == 0) {
+                             layer.msg('部署成功', {icon: 1,time: 5000});
+                              setTimeout(function(){
+                                  window.location.reload();
+                                  },5000)
+                     } else {
+                             layer.msg('小主，很抱歉，部署失败了！小哥哥要挨揍咯！', {icon: 3,time: 5000});
+                             setTimeout(function(){
+                                  window.location.reload();
+                                  },5000)
+                     }
+                  },
+                  error: function(XMLHttpRequest,textStatus,errorThrown){
+                     alert('error.状态文本值：'+textStatus+" 异常信息："+errorThrown);
+                  }
+              });
+          }
+    </script>
+{% endblock %}

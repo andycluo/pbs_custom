@@ -1,0 +1,198 @@
+{% extends "basic.html" %}
+{% block content %}
+    <div class="col-sm-15" style="height: 85%">
+        <div class="ibox float-e-margins">
+            <div class="">
+                <form class="form-horizontal">
+                    <div>
+                        <select id="env" class="selector" onclick="getEnv()">
+                            {% if selenv == '' %}
+                                <option value="default" selected>环境选择</option>
+                            {% else %}
+                                <option value="default" >环境选择</option>
+                            {% endif %}
+                            {% if selenv == 'test' %}
+                                <option value="test" selected>测试环境</option>
+                            {% else %}
+                                <option value="test">测试环境</option>
+                            {% endif %}
+                            {% if selenv == 'pro' %}
+                                <option value="pro" selected>生产环境</option>
+                            {% else %}
+                                <option value="pro">生产环境</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+                <table class="table table-striped table-bordered table-hover " id="editable" style="text-align: center">
+                    <thead align="center">
+                    <tr>
+                        <th>项目名称</th>
+                        <th>git地址</th>
+                        <th>本次版本</th>
+			<th>项目类型</th>
+                        <th>创建时间</th>
+                        <th>发布时间</th>
+                        <th>状态</th>
+                        {% if selenv != 'default' and selenv  %}
+                            <th>发布模式</th>
+                            <th>是否推送</th>
+                            <th>操作</th>
+                        {% endif %}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for data in datas %}
+                        <form id="j-tag-form-{{ data.id }}">
+                        <tr>
+                            <td>{{ data.pro_name }}</td>
+                            <td>{{ data.tag_url }}</td>
+                            <td>{{ data.code_branch }}</td>
+                            {% if data.pro_type == 1 %}
+				<td>fe</td>
+                            {% elif data.pro_type == 2 %}
+                                <td>base</td>
+                            {% elif data.pro_type == 4 %}
+                                <td>node</td>
+                            {% elif data.pro_type == 5 %}
+                                <td>employee</td>
+                            {% else %}
+                                <td>ats</td>
+                            {% endif %}
+                            <td>{{ data.created_at }}</td>
+                    	    <td id="ctime{{ data.id }}">{{ data.published_at }}</td>
+                            {% if data.deploy_stat == 0 %}
+                                <td id='sstat{{ data.id }}'><font color="red">待提测</font></td>
+                            {% elif data.deploy_stat == 1 %}
+				                {% if selenv == 'test'  %}
+                                    <td id="sstat{{ data.id }}"><font color="green">已提测</font></td>
+				                {% else %}
+                                    <td id="sstat{{ data.id }}"><font color="red">待上线</font></td>
+				                {% endif %}
+                            {% else %}
+                                <td><font color="green">已上线</font></td>
+                            {% endif %}
+                            {% if selenv != 'default' %}
+                                <td><input type="radio" name="pbstat" value="1">全量</td>
+                            {% endif %}
+                            {% if selenv != 'default' and selenv %}
+				                {% if data.deploy_stat != 2  %}
+				                    <td>
+                		                <span data-id ="{{data.id}}" onclick="sync(event)" class="btn btn-primary ">同步</span>
+				                    </td>
+				                {% else %}
+                                    <td>
+                                        <div class="col-sm-9">
+                                            已同步,无需再次推送 
+                                        </div>
+                                    </td>
+				                {% endif %}
+                            {% endif %}
+                            {% if selenv != 'default' %}
+                                <td>
+                                    {% if selenv == 'test' %}
+                                            <a href="/publish/deployfe/?id={{ data.id }}&tenv=pro">
+                                                <span class="btn btn-primary ">去上线</span>
+                                            </a>
+                                    {% endif %}
+                                      <a href="/publish/deployfe/?id={{ data.id }}&tenv=test">
+                                          <span class="btn btn-primary ">重新提测</span>
+                                      </a>
+                                        <!--a href="/publish/rollback/?tenv={{ selenv }}&pro={{ data.pro_name }}&tag={{ data.code_branch }}">
+                                            <span class="btn btn-primary">去回滚</span>
+                                        </a-->
+                                </td>
+			                {% endif %}
+                        </tr>
+                        <input type="hidden" name="genv" value="{{ selenv }} ">
+                        <input type="hidden" name="proname" value="{{ data.pro_name }} ">
+                        <input type="hidden" name="tagbranch" value="{{ data.code_branch }} ">
+                        <input type="hidden" name="tagurl" value="{{ data.tag_url }} ">
+                        <input type="hidden" name="stat" value="1">
+                        <input type="hidden" name="tagid" value="{{ data.id }}">
+                        <input type="hidden" name="protype" value="{{ data.pro_type }}">
+                     </form>
+                    {% endfor %}
+                </table>
+                {% if curPage != 1 and curPage >= 2 %}
+                    <a href="?tenv={{ selenv }}&&curPage={{ curPage }}&&pageType=pageUp">上一页</a>
+                {% endif %}
+                {% if totalPage >= curPage+5 %}
+                    {% for page in range(curPage,5)%}
+                        <a href="?tenv={{ selenv }}&&curPage={{ page }}">{{ page }}</a>
+                    {% endfor %}
+                {% elif totalPage > 5 %}
+                    {% for page in range(totalPage-5,totalPage+1)%}
+                        <a href="?tenv={{ selenv }}&&curPage={{ page }}">{{ page }}</a>
+                    {% endfor %}
+                {% else %}
+                    {% for page in range(1,totalPage+1)%}
+                        <a href="?tenv={{ selenv }}&&curPage={{ page }}">{{ page }}</a>
+                    {% endfor %}
+                {% endif %}
+                {% if curPage != totalPage %}
+                   <a href="?tenv={{ selenv }}&&curPage={{ curPage }}&&pageType=pageDown">下一页</a>
+                {% endif %}
+	    <div id='syncinfo'></div>
+            {% if err_msg[0] %}
+                <font color="red"><h4>{{ err_msg[1] }}</h4></font>
+            {% else  %}
+                <font color="green"><h4>{{ err_msg[1] }}</h4></font>
+            {% endif %}
+        </div>
+    </div>
+    </div>
+    <script type="text/javascript">
+        function getEnv() {
+            $('#env').change(
+                function () {
+                    data=$('#env').val();
+                    window.location.href='http://' + window.location.hostname+':8080/publish/deployfe/?tenv='+data
+                }
+            )
+        }
+        
+        function sync(e) {
+	    var event = e ;
+		var murl='http://' + window.location.hostname+':8080/publish/api/asynccustomfe/';
+		var id = event.target.getAttribute("data-id");
+	    var datas=$('#j-tag-form-' + id).serializeArray();
+	    var genv=$.trim(datas[0]["value"]);
+	    var time=new Date();
+
+	    var curtime=time.getFullYear() + "-" + time.getMonth() + "-" + time.getDate() + " " + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds();
+    	    $.ajax({ 
+                type: "POST", 
+                data: datas,
+                dataType: "JSON", 
+                url: murl,
+		beforeSend: function(XMLHttpRequest){
+		    $('#syncinfo').html('<font color="green">程序员哥哥正在努力搬砖【'+datas[1]['value']+'】</font><br><font color="green">小主请耐心等待......</font>');
+		},
+                success: function(results) {
+		   console.log(results);
+					event.target.setAttribute("data-id",results.id);
+                   if (results.stat == 1) {
+		   $('#syncinfo').html('<font color="green">感谢小主的耐心等待</font><br><font color="green">代码已同步完成(◕ˇ∀ˇ◕)</font>');
+			   if ( genv == 'test' ){
+			       $('#ctime'+id).html(curtime);
+			       $('#sstat'+id).html('<font color="green">已提测</font>');
+			   }else{
+			       $('#ctime'+id).html(curtime);
+			       $('#sstat'+id).html('<font color="green">已上线</font>');
+			   }
+                   } else {
+			   $('#syncinfo').html('<font color="red">同步失败(•́︿•̀).小哥哥要挨揍咯~</font>');
+                   }
+                },
+		//complete:function(XMLHttpRequest,textStatus){ 
+                //   alert('远程调用成功，状态文本值：'+textStatus); 
+                //},
+		error: function(XMLHttpRequest,textStatus,errorThrown){
+		   alert('error.状态文本值：'+textStatus+" 异常信息："+errorThrown);
+		}
+            });
+        }
+    </script>
+{% endblock %}

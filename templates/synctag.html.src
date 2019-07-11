@@ -1,0 +1,108 @@
+{% extends "basic.html" %}
+{% block content %}
+    <div class="col-sm-15" style="height: 85%">
+        <div class="ibox float-e-margins">
+            <div class="">
+                <form class="form-horizontal">
+                    <div>
+                        <select id="env" class="selector" onclick="getEnv()">
+                            {% if selenv == '' %}
+                                <option value="default" selected>环境选择</option>
+                            {% else %}
+                                <option value="default" >环境选择</option>
+                            {% endif %}
+                            {% if selenv == 'test' %}
+                                <option value="test" selected>测试环境</option>
+                            {% else %}
+                                <option value="test">测试环境</option>
+                            {% endif %}
+                            {% if selenv == 'online' %}
+                                <option value="online" selected>生产环境</option>
+                            {% else %}
+                                <option value="online">生产环境</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <form action="/publish/synctag/" method="POST">
+                <table class="table table-striped table-bordered table-hover " id="editable" style="text-align: center">
+                    <thead>
+                    <tr>
+                        <th>tag url</th>
+                        <th>本次版本</th>
+                        <th>创建时间</th>
+                        <th>状态</th>
+                        {% if selenv != 'default' and selenv  %}
+                            <th>是否推送</th>
+                        {% endif %}
+                        {% if selenv == 'test' %}
+                            <th>操作</th>
+                        {% endif %}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for data in datas %}
+                        <tr>
+                            <td>{{ data.tag_url }}</td>
+                            <td>{{ data.tag_branch }}</td>
+                            <td>{{ data.created_at }}</td>
+                            {% if data.status == 0 %}
+                                <td><font color="red">待提测</font></td>
+                            {% elif data.status == 1 %}
+                                <td><font color="red">待上线</font></td>
+                            {% else %}
+                                <td><font color="green">已上线</font></td>
+                            {% endif %}
+                            {% if selenv != 'default' and selenv %}
+				{% if data.status != 2 %}
+                                    <td>
+                                        <div class="col-sm-9">
+                                            <label class="checkbox-inline">
+                                                <input type="radio" value="1" name="{{ data.tag_branch}}" id="inlineCheckbox1">是
+                                            </label>
+                                            <label class="checkbox-inline">
+                                                <input type="radio" value="0" checked name="{{ data.tag_branch }}" id="inlineCheckbox2">否
+                                            </label>
+                                        </div>
+                                    </td>
+				{% else %}
+                                    <td>
+                                        <div class="col-sm-9">
+                                            已同步,无需再次推送 
+                                        </div>
+                                    </td>
+				{% endif %}
+                            {% endif %}
+			    {% if selenv == 'test' %}
+			        <td>
+				    <a href="/publish/synctag/?id={{ data.id }}">
+			                 <input type='button' value='去上线'  onclick="window.location.href('/publish/synctag/?id={{ data.id }}')">
+				    </a>
+			        </td>
+			    {% endif %}
+                        </tr>
+                    {% endfor %}
+                    <input type="hidden" name="genv" value="{{ selenv }} ">
+                </table>
+                <button class="btn btn-primary " type="submit"><i class="fa fa-check"></i>&nbsp;同步</button>
+            </form>
+            {% if err_msg[0] %}
+                <font color="red"><h4>{{ err_msg[1] }}</h4></font>
+            {% else  %}
+                <font color="green"><h4>{{ err_msg[1] }}</h4></font>
+            {% endif %}
+        </div>
+    </div>
+    </div>
+    <script type="text/javascript">
+        function getEnv() {
+            $('#env').change(
+                function () {
+                    data=$('#env').val();
+                    window.location.href='http://' + window.location.hostname+':8080/publish/synctag/?tenv='+data
+                }
+            )
+        }
+    </script>
+{% endblock %}

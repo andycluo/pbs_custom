@@ -1,0 +1,66 @@
+#!/bin/bash
+set -x
+if [ $# -ne 3 ];then
+    exit 404
+else
+    pname=$1
+    img=$2
+    menv=$3
+fi
+
+LOGPATH="/opt/log/tob-web/"
+WORKPATH="/opt/log/tob-work/"
+webport=19004
+phpport=19000
+fepath='/opt/wwwroot/tob/web/fe/'
+#f2epath=' /opt/wwwroot/f2e/'
+#webargs="--memory=2g --memory-swap=3g"
+#workargs="--memory=2g --memory-swap=3g"
+webargs=""
+workargs=""
+gmconf='/opt/wwwroot/conf/'
+pros="tob-web tob-work"
+tag=`echo $img|awk -F':' '{print $2}'`
+img="docker.ifchange.com/projects/tob-web:$tag"
+img2="docker.ifchange.com/projects/tob-work:$tag"
+
+if [ $menv == 'test' ];then
+    menv='testing2'
+elif [ $menv == 'test3' ];then
+    menv='testing3'
+    webport=29004
+    phpport=29000
+    fepath='/opt/wwwroot/tob/web/fe_test3/'
+    #f2epath=' /opt/wwwroot/f2e_test3/'
+    LOGPATH="/opt/log/tob-web_test3/"
+    WORKPATH="/opt/log/tob-work_test3/"
+    gmconf='/opt/wwwroot/conf_test3/'
+    pros="tob-test3-web tob-test3-work"
+else
+    webargs="--memory=2g --memory-swap=3g"
+    workargs="--memory=3g --memory-swap=4g"
+fi
+
+for log in $LOGPATH $WORKPATH
+do
+    if [ ! -d $log ];then
+        mkdir $log -p
+    fi
+done
+
+docker pull $img
+docker pull $img2
+for pro in $pros
+do
+    cid=`docker ps -a --filter "NAME=$pro" --format "{{.ID}}"`
+    if [ ! -z $cid ];then
+        docker stop $cid
+        docker rm $cid
+    fi
+    if [ $pro == 'tob-web' -o $pro == 'tob-test3-web' ];then
+        #docker run -d  $webargs -p $webport:80 -p $phpport:9000 -e APP_ENV=$menv -v $LOGPATH:/opt/log/ -v /opt/data/tobExportResume/:/opt/export_resume/ -v $fepath:/opt/wwwroot/tob/web/fe/ -v $f2epath:/opt/wwwroot/f2e/ -v /opt/wwwroot/share_files/webank/:/opt/wwwroot/share_files/webank/ -v $gmconf:/opt/wwwroot/conf/ --name=$pro $img /root/run.sh $menv
+        docker run -d  $webargs -p $webport:80 -p $phpport:9000 -e APP_ENV=$menv -v $LOGPATH:/opt/log/ -v /opt/data/tobExportResume/:/opt/export_resume/ -v $fepath:/opt/wwwroot/tob/web/fe/ -v /opt/wwwroot/share_files/webank/:/opt/wwwroot/share_files/webank/ -v $gmconf:/opt/wwwroot/conf/ --name=$pro $img /root/run.sh $menv
+    else
+        docker run -d  $workargs -e APP_ENV=$menv -v $WORKPATH:/opt/log/ -v /opt/data/tobExportResume/:/opt/export_resume/ -v /opt/wwwroot/share_files/webank/:/opt/wwwroot/share_files/webank/ -v $gmconf:/opt/wwwroot/conf/ --name=$pro $img2 /root/work.sh $menv
+    fi
+done

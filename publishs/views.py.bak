@@ -1,0 +1,308 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
+from django.shortcuts import render_to_response,HttpResponseRedirect
+from django.contrib.auth.hashers import make_password, check_password
+from models import *
+from django.utils import timezone
+from public import  gitModule,sshSync
+import os,time
+# Create your views here.
+
+##用户登录
+def login(request):
+    if request.method == 'POST':
+        data = request.POST
+        name = data['user']
+        pwd = data['pwd']
+        # print make_password('ifchange888')
+        try:
+            realData = User.objects.get(name=name)
+            if check_password(pwd, realData.pwd):
+                request.session['is_login'] = True
+                request.session['username'] = name
+                return HttpResponseRedirect('/publish/index/')
+            else:
+                error = {'msg': '账号或密码错误'}
+                return HttpResponseRedirect('/publish/', context=error)
+        except Exception as e:
+            return HttpResponseRedirect('/publish/')
+    else:
+        return  render_to_response('login.html')
+##首页
+def index(request):
+    islogin =  request.session.get('is_login',False)
+    username = request.session.get('username')
+    if islogin:
+        return render_to_response('index.html',{'username':username})
+    else:
+        return HttpResponseRedirect('/publish/')
+##退出
+def logout(request):
+    del request.session
+    return HttpResponseRedirect('/publish/')
+
+##添加gm配置
+def addgm(request):
+    genv = 'default'
+    username = request.session.get('username')
+    if request.method == 'POST':
+        data = request.POST
+        work_name = data['wname']
+        gm_server = data['gserver']
+        gm_port = data['gport']
+        gm_env = data['genv']
+        try:
+            if Gmconf.objects.get(work_name=work_name,gm_env=gm_env):
+                msg='%s of %s already exist' % (work_name,gm_env)
+                request.session['err']=msg
+                return HttpResponseRedirect('/publish/addgm/')
+        except:
+            try:
+                db1 = Gmconf(work_name=work_name,gm_server=gm_server,gm_port=gm_port,gm_env=gm_env)
+                db1.save()
+                return HttpResponseRedirect('/publish/addgm/')
+            except Exception as e:
+                print str(e)
+                msg = 'Add %s of %s failed' % (work_name,gm_env)
+                request.session['err'] = msg
+                return HttpResponseRedirect('/publish/addgm/')
+    else:
+        if request.GET.has_key('genv') and request.GET['genv'] != 'default':
+            genv = request.GET['genv']
+            datas = Gmconf.objects.filter(gm_env=genv,status=1).values()
+        else:
+            datas = Gmconf.objects.filter(status=1).values()
+    if request.session.has_key('err'):
+        err_msg = request.session['err']
+        del request.session['err']
+    else:
+        err_msg = False
+    return render_to_response('addgm.html',{'username':username,'datas':datas,'err_msg':err_msg,'selenv':genv})
+
+def syncgm(request):
+    username = request.session.get('username')
+    if request.GET.has_key('genv') and request.GET['genv'] != 'default':
+        genv=request.GET['genv']
+        datas = Gmconf.objects.filter(status=0, gm_env=genv).values()
+    else:
+        datas =  Gmconf.objects.filter(status=0).values()
+        genv='default'
+    print datas
+    return render_to_response('syncgm.html',{'username':username,'datas':datas,'selenv':genv})
+
+def syncgming(request):
+    username = request.session.get('username')
+    if request.method == 'POST':
+        datas = request.POST
+        cenv=datas['genv'].strip()
+        gmconf = '/opt/wwwroot/conf/gm_%s.conf' % cenv
+        ##获取当前配置
+        f = open(gmconf, 'r')
+        cont = eval(f.read())
+        print datas
+        for work in datas.keys():
+            if work == 'genv':
+                continue
+            data=datas.getlist(work)
+            if data[0] == '0':
+                continue
+            db=Gmconf.objects.filter(gm_env=cenv,id=int(data[1].strip()))
+            for sect in db.values():
+                gm_server=sect['gm_server']
+                gm_port=sect['gm_port']
+            ##添加新配置
+            cont[work] = {'host': ["%s:%s" % (gm_server, gm_port)]}
+            Gmconf.objects.filter(id=int(data[1].strip())).update(status=1,published_at=timezone.now())
+        f = open(gmconf, 'w')
+        f.write(str(cont).encode('utf8'))
+        f.close()
+    return HttpResponseRedirect('/publish/addgm/')
+
+##添加tag配置
+def addtag(request):
+    tag_env = 'default'
+    username = request.session.get('username')
+    cur_date = time.strftime('%Y-%m-%d', time.localtime())
+    if request.method == 'POST':
+        data = request.POST
+        tag_url = data['tagurl']
+        branch = data['branch']
+        tag_env = data['tenv']
+        ##获取branch
+        if branch:
+            if branch == '0':
+                branch = 'master_' + cur_date
+            try:
+                if Tagconf.objects.get(tag_url=tag_url,tag_env=tag_env,tag_branch=branch):
+                    msg='%s of %s on %s already exist' % (branch,tag_url,tag_env)
+                    request.session['err']=msg
+                    return HttpResponseRedirect('/publish/addtag/')
+            except:
+                try:
+                    db1 = Tagconf(tag_url=tag_url,tag_branch=branch,tag_env=tag_env)
+                    db1.save()
+                    return HttpResponseRedirect('/publish/addtag/')
+                except Exception as e:
+                    print str(e)
+                    msg = 'Add %s of %s on %s failed' % (branch,tag_url,tag_env)
+                    request.session['err'] = msg
+                    return HttpResponseRedirect('/publish/addtag/')
+        else:
+            request.session['err'] = '版本未指定，添加失败'
+            return HttpResponseRedirect('/publish/addtag/')
+    else:
+        if request.GET.has_key('tenv') and request.GET['tenv'] != 'default':
+            tag_env = request.GET['tenv']
+            datas = Tagconf.objects.filter(tag_env=tag_env,status=0).values()
+        else:
+            datas = Tagconf.objects.filter(status=0).order_by('-created_at').values()
+    if request.session.has_key('err'):
+        err_msg = [1,request.session['err']]
+        del request.session['err']
+    else:
+        err_msg = [0,'']
+    print datas
+    return render_to_response('addtag.html',{'username':username,'datas':datas,'err_msg':err_msg,'selenv':tag_env})
+
+def synctag(request):
+    username = request.session.get('username')
+    if request.method == 'POST':
+        datas = request.POST
+	print datas
+        tag_env=datas['genv'].strip()
+        if tag_env == 'test':
+            host='211.148.28.19'
+	    port=68
+	    user='icpublish'
+            #host='192.168.1.112'
+	    #port=22
+	    #user='icpublish'
+	    sstat=1
+        else:
+            host='211.148.28.7'
+	    port=22118
+	    user='icpublish'
+	    sstat=2
+	syncstat=0
+        for tag in datas.keys():
+            if tag == 'genv':
+                continue
+            data = datas.getlist(tag)
+            if data[0] == '1':
+                syncstat+=1
+        ##获取当前配置
+	if syncstat:
+            for tag in datas.keys():
+                if tag == 'genv':
+                    continue
+                data=datas.getlist(tag)
+                if data[0] == '0':
+                    continue
+		print tag
+                db=Tagconf.objects.filter(tag_env=tag_env,tag_branch=tag)
+		print db.values()
+                if not db.values():
+                    datas={}
+                else:
+                    for sect in db.values():
+                        tagurl=sect['tag_url']
+                        branch=sect['tag_branch']
+                        print tagurl,branch
+                        codeParDir = '/opt/deploy/code/' + tagurl.split(':')[1].split('.')[0].split('/')[0]
+                        codeDir = tagurl.split(':')[1].split('.')[0]
+                        codepath = '/opt/deploy/code/'+codeDir
+                        cur_date = time.strftime('%Y-%m-%d', time.localtime())
+                        fulltar = '/opt/zipdir/fe_full_%s.tar.gz' % cur_date
+                        bezip = '/opt/zipdir/fe_incr_%s.zip' % cur_date
+                        git = gitModule(tagurl)
+                        if not os.path.exists(codeParDir):
+                            os.system('mkdir %s -p' % codeParDir)
+                        if not os.path.exists(codepath):
+                            git.clone(codepath)
+                            err_msg=[0,'']
+                        elif 'master' in branch:
+                            dstpath = '/opt/zipdir/fe_full_%s.tar.gz' % cur_date
+	    		    print dstpath
+                            delfiles = ['']
+                            ret=git.checkout('master',codepath,fulltar)
+                            if ret:
+                                #res=sshSync(host,port,user,fulltar,dstpath,'/usr/bin/python /home/icpublish/deploy.py %s %s "%s" %s' % (codeDir,fulltar,delfiles,cur_date))
+                                res=sshSync(host,port,user,fulltar,dstpath,'/usr/bin/python /opt/userhome/icpublish/deploy.py %s %s "%s" %s' % (codeDir,fulltar,delfiles,cur_date))
+                                print res
+                                if 'finish' in res and not 'failed' in res:
+                                    err_msg = [0,'同步完成']
+				    if tag_env == 'online':
+                                        Tagconf.objects.filter(tag_branch=branch).update(status=sstat,tag_env='online')
+                                else:
+                                    err_msg = [1,'同步失败']
+                            else:
+                                err_msg=[1,'获取全量文件失败']
+                        else:
+			    try:
+				datas=Tagconf.objects.filter(tag_env='online',status=2).order_by('-created_at').values()
+				print datas
+				if datas:
+				    lasttag=datas[0]
+				else:
+				    lasttag=0
+			    except Exception as e:
+				print str(e)
+			    if not lasttag:
+                                dstpath = '/opt/zipdir/fe_full_%s.tar.gz' % cur_date
+                                rets=git.checkout(branch,codepath,fulltar)
+			    else:
+                                dstpath = '/opt/zipdir/fe_incr_%s.zip' % cur_date
+                                rets=git.diff(branch,bezip,codepath)
+                            print rets
+                            if rets:
+				if lasttag:
+                                    incrfile = rets[0]
+                                    delfiles=rets[1]
+                                    if incrfile:
+                                        #res=sshSync(host, port,user, incrfile, dstpath, '/usr/bin/python /home/icpublish/deploy.py %s %s "%s" %s' % (codeDir,incrfile,delfiles,cur_date))
+                                        res=sshSync(host, port,user, incrfile, dstpath, '/usr/bin/python /opt/userhome/icpublish/deploy.py %s %s "%s" %s' % (codeDir,incrfile,delfiles,cur_date))
+                                        if 'finish' in res and not 'failed' in res:
+                                            err_msg = [0,'同步完成']
+					    if tag_env == 'online':
+                                                Tagconf.objects.filter(tag_branch=branch).update(status=sstat,tag_env='online')
+                                        else:
+                                            err_msg = [1,'同步失败']
+				else:
+                            	    delfiles = ['']
+				    res=sshSync(host,port,user,fulltar,dstpath,'/usr/bin/python /opt/userhome/icpublish/deploy.py %s %s "%s" %s' % (codeDir,fulltar,delfiles,cur_date))
+                                    print res
+                                    if 'finish' in res and not 'failed' in res:
+                                        err_msg = [0,'同步完成']
+					if tag_env == 'online':
+                                            Tagconf.objects.filter(tag_branch=branch).update(status=sstat,tag_env='online')
+                                    else:
+                                        err_msg = [1,'同步失败']
+
+                            else:
+                                err_msg=[1,'获取增量文件失败']
+	else:
+	    err_msg = [1, '没有需要同步的tag']
+        datas = Tagconf.objects.filter(status=0).values()
+    else:
+	print 'sss'
+        if request.GET.items():
+	    if 'tenv' in request.GET.items()[0]:
+                tag_env=request.GET['tenv']
+                if tag_env == 'default':
+                    datas = Tagconf.objects.all().values()
+                elif tag_env == 'test':
+                    datas = Tagconf.objects.filter(status=0).values()
+                else:
+                    datas = Tagconf.objects.exclude(status=0).values()
+		print datas
+	    elif 'id' in request.GET.items()[0]:
+		tid=request.GET['id']
+		Tagconf.objects.filter(id=tid).update(status=1,tag_env='online')
+    		return HttpResponseRedirect('/publish/synctag/?tenv=online')
+        else:
+            tag_env = 'default'
+            datas=Tagconf.objects.values()
+        err_msg=[0,'']
+    return render_to_response('synctag.html',{'username':username,'datas':datas,'err_msg':err_msg,'selenv':tag_env})
+    #return HttpResponseRedirect('/publish/synctag/')

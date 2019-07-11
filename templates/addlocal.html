@@ -1,0 +1,128 @@
+{% extends "basic.html" %}
+{% block content %}
+    <div class="col-sm-15" style="height: 85%">
+        <div class="ibox float-e-margins">
+            <div class="">
+                <form class="form-horizontal" action="/publish/addlocal/" method="post">
+                    <div class="modal inmodal" id="myModal" tabindex="-1" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content animated bounceInRight">
+                                <div class="modal-header">
+                                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span
+                                            class="sr-only">关闭</span>
+                                    </button>
+                                    <h4 class="modal-title">添加本地化项目</h4>
+                                </div>
+                                <div class="modal-body">
+                                   <div class="form-group">
+                                        <label for="tagpro" class="col-sm-3 control-label">项目名称</label>
+                                        <div class="col-sm-9">
+                                            <input type="text" class="form-control" name="proname"
+                                                   placeholder="brc" maxlength="64" >
+                                        </div>
+                                    </div>
+                                   <!--div class="form-group">
+                                        <label for="tagtype" class="col-sm-3 control-label">服务名称</label>
+                                        <div class="col-sm-9">
+                                            <input type="text" class="form-control" name="svrname"
+                                                   placeholder="tob-ats tob-fe hunter toc-ai" maxlength="32" >
+                                        </div>
+                                    </div-->
+                                   <div class="form-group">
+                                        <label for="tagurl" class="col-sm-3 control-label">git地址/镜像地址</label>
+                                        <div class="col-sm-9">
+                                            <input type="text" class="form-control" name="giturl"
+                                                   placeholder="git@192.168.1.199:web/be.git" maxlength="64" >
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                            <label for="curcid" class="col-sm-3 control-label">本次版本</label>
+                                            <div class="col-sm-9">
+                                                <input type="text" class="form-control" name="branch"
+                                                       placeholder="分支名称" maxlength="32">
+                                            </div>
+                                        </div>
+
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-white" data-dismiss="modal">关闭</button>
+                                    <input type="hidden" name='genv' value="test"/>
+                                    <input type="submit" class="btn btn-primary" value="保存"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <table class="table table-striped table-bordered table-hover " id="editable" style="text-align: center">
+                <thead>
+                <tr>
+                    <th>项目名称</th>
+                    <th>服务名称</th>
+                    <th>git地址</th>
+                    <th>当前版本</th>
+                    <th>创建时间</th>
+                    <th>发布时间</th>
+                    <th colspan="2">编辑</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for data in datas %}
+                    <tr>
+                        <td>{{ data.proname }}</td>
+                        <td>{{ data.svrname }}</td>
+                        <td>{{ data.tag_url }}</td>
+                        <td>{{ data.code_branch }}</td>
+                        <td>{{ data.created_at }}</td>
+                        <td>{{ data.published_at }}</td>
+                        <td><span class="glyphicon glyphicon-edit" aria-hidden="true"></span></td>
+                    </tr>
+                {% endfor %}
+            </table>
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal">
+                    添加项目
+            </button>
+            {% if err_msg[0] %}
+                <font color="red"><h4>{{  err_msg[1] }}</h4></font>
+            {% else %}
+                <font color="green"><h4>{{  err_msg[1] }}</h4></font>
+            {% endif %}
+        </div>
+    </div>
+    </div>
+<script type="text/javascript">
+        $('tbody').on('click',function(e){
+        if (e.target.className == 'glyphicon glyphicon-remove'){
+	  layer.confirm('确定删除？', {
+          btn: ['确定','取消'] //按钮
+        }, function(){
+          var murl='http://' + window.location.hostname+':8080/publish/api/delLocal/';
+          var sid=e.target.getAttribute("sid");
+          $.ajax({ 
+                type: "POST", 
+                data: {'sign':sid},
+                dataType: "JSON", 
+                url: murl,
+                success: function(results) {
+                   if (results.stat == '1') {
+          		layer.msg('删除成功', {icon: 1});
+                         window.location.reload();
+                   } else {
+          		layer.msg('删除失败', {icon: 3});
+                   }
+                },
+                error: function(XMLHttpRequest,textStatus,errorThrown){
+                   alert('error.状态文本值：'+textStatus+" 异常信息："+errorThrown);
+                }
+            }
+	  );
+        }, function(){
+          layer.msg('后悔了，不删除。', {
+            time: 5000, //20s后自动关闭
+            icon: 2,
+          });
+        });
+      }})
+</script>
+{% endblock %}

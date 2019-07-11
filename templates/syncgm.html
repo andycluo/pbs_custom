@@ -1,0 +1,90 @@
+{% extends "basic.html" %}
+{% block content %}
+    <div class="col-sm-15" style="height: 85%">
+        <div class="ibox float-e-margins">
+            <div class="">
+                <form class="form-horizontal">
+                    <div>
+                        <select id="env" class="selector" onclick="getEnv()">
+                            {% if selenv == '' %}
+                                <option value="default" selected>环境选择</option>
+                            {% else %}
+                                <option value="default" >环境选择</option>
+                            {% endif %}
+                            {% if selenv == 'dev' %}
+                                <option value="dev" selected>开发环境</option>
+                            {% else %}
+                                <option value="dev">开发环境</option>
+                            {% endif %}
+                            {% if selenv == 'test' %}
+                                <option value="test" selected>测试环境</option>
+                            {% else %}
+                                <option value="test">测试环境</option>
+                            {% endif %}
+                            {% if selenv == 'online' %}
+                                <option value="online" selected>生产环境</option>
+                            {% else %}
+                                <option value="online">生产环境</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <form action="/publish/syncgming/" method="POST">
+                <table class="table table-striped table-bordered table-hover " id="editable" style="text-align: center">
+                    <thead>
+                    <tr>
+                        <th>work名</th>
+                        <th>GM地址</th>
+                        <th>GM端口</th>
+                        <th>环境</th>
+                        <th>状态</th>
+                        {% if selenv != 'default' and selenv %}
+                            <th>是否推送</th>
+                        {% endif %}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for data in datas %}
+                        <tr>
+                            <td>{{ data.work_name }}</td>
+                            <td>{{ data.gm_server }}</td>
+                            <td>{{ data.gm_port }}</td>
+                            <td>{{ data.gm_env }}</td>
+                            <td><font color="red">待推送状态</font></td>
+                            {% if selenv != 'default' and selenv %}
+                                <td>
+                                    <div class="col-sm-9">
+                                        <label class="checkbox-inline">
+                                            <input type="radio" value="1" name="{{ data.work_name }}" id="inlineCheckbox1">是
+                                        </label>
+                                        <label class="checkbox-inline">
+                                            <input type="radio" value="0" checked name="{{ data.work_name }}" id="inlineCheckbox2">否
+                                        </label>
+                                    </div>
+                                </td>
+                            {% endif %}
+                            <input type="hidden" name="{{ data.work_name }}" value="{{ data.id }} ">
+                        </tr>
+                    {% endfor %}
+                    <input type="hidden" name="genv" value="{{ selenv }} ">
+                </table>
+                <button class="btn btn-primary " type="submit"><i class="fa fa-check"></i>&nbsp;同步</button>
+            </form>
+            {% if err_msg %}
+                <font color="red"><h4>{{ err_msg }}</h4></font>
+            {% endif %}
+        </div>
+    </div>
+    </div>
+    <script type="text/javascript">
+        function getEnv() {
+            $('#env').change(
+                function () {
+                    data=$('#env').val();
+                    window.location.href='http://' + window.location.hostname+'/publish/syncgm/?genv='+data
+                }
+            )
+        }
+    </script>
+{% endblock %}

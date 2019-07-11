@@ -1,0 +1,16 @@
+svrmap={'git@192.168.1.199:web/be.git':'tob-be','git@192.168.1.199:web/fe.git':'tob-fe','git@192.168.1.199:ifchange/fe.git':'ifchange-fe','git@192.168.1.199:f2e/common.git':'common','git@192.168.1.199:f2e/public.git':'public','git@192.168.1.199:web/tob-ats.git':'tob-ats','git@192.168.1.199:web/common-employee.git':'common-employee','git@192.168.1.199:soa/ka-local-basic.git':'common-basic','git@192.168.1.199:soa/tob-resume-service.git':'tob-resume-service','git@192.168.1.199:soa/tob-es.git':'tob-es','git@192.168.1.5:haifeng.wu/grab.git':'grab','git@192.168.1.199:soa/tob-resume-pdf.git':'tob-pdf','git@192.168.1.199:soa/tob-account.git':'tob-account','git@192.168.1.199:soa/tob-data-track.git':'tob-data-track','git@192.168.1.199:web/report.git':'tob-report'}
+
+if svrmap.has_key(tag_url):
+    svrname=svrmap[tag_url]
+elif tag_url.startswith('docker.ifchange.com/toc/backend/php-local-neitui'):
+    svrname='toc-neitui'
+elif tag_url.startswith('docker.ifchange.com/toc/backend/php-local'):
+    svrname='toc-ai'
+elif tag_url.startswith('docker.ifchange.com/toc/frontend-bole_pc'):
+    svrname='neitui-bole'
+elif tag_url.startswith('docker.ifchange.com/toc/frontend-referral'):
+    svrname='neitui-hr'
+elif tag_url.startswith('docker.ifchange.com/toc/frontend-candidate-pc'):
+    svrname='neitui-candidate'
+elif tag_url.startswith('docker.ifchange.com/toc/frontend'):
+    svrname='toc-node'

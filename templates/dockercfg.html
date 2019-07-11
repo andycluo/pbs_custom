@@ -1,0 +1,114 @@
+{% extends "basic.html" %}
+{% block content %}
+    <div class="col-sm-15" style="height: 85%">
+        <div class="">
+                <form class="form-horizontal">
+                    <div>
+                        <select id="selenv" class="selector" onclick="getEnv()">
+                            {% if env == '' %}
+                                <option value="default" selected>环境选择</option>
+                            {% else %}
+                                <option value="default" >环境选择</option>
+                            {% endif %}
+                            {% if env == 'test' %}
+                                <option value="test" selected>测试环境</option>
+                            {% else %}
+                                <option value="test">测试环境</option>
+                            {% endif %}
+                            {% if env == 'pro' %}
+                                <option value="pro" selected>生产环境</option>
+                            {% else %}
+                                <option value="pro">生产环境</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+             <div class="col-md-8" style="margin: 10px 0px 0px 0px;">
+                 <h4>docker配置</h4>
+                 <form method="POST" action="/publish/dockercfg/">
+                 <textarea  id="original" name="cfg" rows='30' cols='100'  style="margin: 0px 28.9844px 0px 0px; width: 100%; height: 80%;overflow:scroll;overflow-x:hidden;">{
+{% for data in datas %}"{{ data.pro_name }}":{"host":{{ data.hosts }},"deplist":{{ data.deploy_list}}},
+{% endfor %}}
+                 </textarea>
+                 <input type="hidden" name="env" value="{{ env }}" >
+                 <input type="submit" value="检查">
+		</form>
+                {% if env in ['test','pro'] %}
+                	<div type="margin: 5px 0px 0px 0px;">
+			<span data-id ="1" onclick="synccfg()" class="btn btn-primary " >同步配置</span>
+			</div>
+		{% endif %}
+             </div>
+             <div  class="col-md-4" style="margin: 30px 0px 0px 0px;">
+            <h4>添加列表：</h4>
+            {% if res['add'] %}
+                {% for r in res['add'] %}
+                    <font color="green"><h4>{{ r }}:{{ res['add'][r] }}</h4></font>
+                {% endfor %}
+            {% else %}
+                <font color="green"><h4>无新加配置</h4></font>
+            {% endif %}
+            <h4>修改列表：</h4>
+            {% if res['mod'] %}
+                {% for m in res['mod'] %}
+                    <font color="green"><h4>{{ m }}:{{ res['mod'][m] }}</h4></font>
+                {% endfor %}
+            {% else %}
+                <font color="green"><h4>无修改配置</h4></font>
+            {% endif %}
+            <h4>删除列表：</h4>
+            {% if res['del'] %}
+                {% for d in res['del'] %}
+                    <font color="red"><h4>{{ d }}:{{ res['del'][d] }}</h4></font>
+                {% endfor %}
+            {% else %}
+                <font color="green"><h4>无删除配置</h4></font>
+            {% endif %}
+            {% if err_msg[0] %}
+                <font color="red"><h4>{{  err_msg[1] }}</h4></font>
+            {% else %}
+                <font color="green"><h4>{{  err_msg[1] }}</h4></font>
+            {% endif %}
+             </div>
+            <div id='syncinfo'></div>
+    </div>
+    </div>
+    <script type="text/javascript">
+        function getEnv() {
+            $('#selenv').change(
+                function () {
+                    data=$('#selenv').val();
+                    window.location.href='http://' + window.location.hostname+':9199/publish/dockercfg/?env='+data
+                }
+            )
+        }
+	function synccfg(){
+	    var menv=$('#selenv').val();
+	    var src='/opt/deploy/pbs/conf/' + menv + '/docker.conf';
+            var dst='/opt/wwwroot/conf/service.conf';
+            var murl='http://' + window.location.hostname+':9199/publish/api/syncconf/';
+            var datas={'env':menv,'src':src,'dst':dst};
+            $.ajax({ 
+                type: "POST", 
+                data: datas,
+                dataType: "JSON", 
+                url: murl,
+                beforeSend: function(XMLHttpRequest){
+                    $('#syncinfo').html('<font color="green">友情提示：正在同步配置文件......,</font><br><font color="green">善军正在努力搬砖....</font>');
+                },
+                success: function(results) {
+                   console.log(results);
+                   if (results.stat == '0') {
+                           $('#syncinfo').html('<font color="green">小主，恭喜你，同步成功！！</font>');
+                   } else {
+                           $('#syncinfo').html('<font color="red">小主，很不幸同步失败！！</font>');
+                   }
+                },
+                error: function(XMLHttpRequest,textStatus,errorThrown){
+                   alert('error.状态文本值：'+textStatus+" 异常信息："+errorThrown);
+                }
+            });
+	}
+    </script>
+{% endblock %}

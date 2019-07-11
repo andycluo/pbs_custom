@@ -1,0 +1,33 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
+from django.db import models
+
+# Create your models here.
+
+class User(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=32)
+    pwd = models.CharField(max_length=1024)
+    level = models.IntegerField(default=1)
+    # def __unicode__(self):
+    #     return  self.name,self.pwd
+class Gmconf(models.Model):
+    id = models.AutoField(primary_key=True)
+    work_name = models.CharField(max_length=128)
+    gm_server = models.CharField(max_length=15)
+    gm_port = models.IntegerField(default=4730)
+    gm_env = models.CharField(max_length=10)
+    status = models.IntegerField(default=0,help_text='0:已添加,待推送 1：已推送')
+    created_at = models.DateTimeField('添加时间',auto_now_add=True)
+    published_at = models.DateTimeField('同步时间',auto_now_add=True)
+class Tagconf(models.Model):
+    id = models.AutoField(primary_key=True)
+    tag_url = models.CharField(max_length=128)
+    old_cid = models.CharField(max_length=128)
+    current_cid = models.CharField(max_length=128)
+    tag_env = models.CharField(max_length=10)
+    tag_name = models.CharField(max_length=64,default='')
+    status = models.IntegerField(default=0,help_text='0:已添加,待推送 1：已推送测试环境，待上线 2：已上线')
+    created_at = models.DateTimeField('添加时间',auto_now_add=True)
+    published_at = models.DateTimeField('同步时间',auto_now_add=True)

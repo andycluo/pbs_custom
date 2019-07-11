@@ -1,0 +1,106 @@
+#coding:utf8
+
+import os
+import commands
+import time
+import paramiko
+
+publish_log='/opt/log/be_publish.log'
+f=open(publish_log,'a+')
+
+ctime=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())
+
+class gitModule():
+    def __init__(self,repo):
+        self.repo=repo
+        self.result=[]
+    def clone(self,codepath):
+        cmd='git clone %s %s' % (self.repo,codepath)
+        ret=commands.getstatusoutput(cmd)
+        if ret and not ret[0]:
+            f.write("%s\tFirst clone %s for %s" % (ctime,self.repo,codepath))
+            return 1
+        return 0
+    def pull(self,dstpath):
+        os.chdir(dstpath)
+        ret=commands.getstatusoutput('git pull')
+        if ret and not ret[0]:
+            f.write(ctime+'\tUpdate successfully\n')
+            return 1
+        else:
+            f.write('%s\tUpdate failed\n' % ctime)
+            return 0
+    def checkout(self,cur_id,codepath,fulltar):
+        os.chdir(codepath)
+        allcmd='git checkout %s' % (cur_id)
+        self.ret = commands.getstatusoutput(allcmd)
+        if self.ret and not self.ret[0] and not 'fatal' in self.ret[1]:
+            tarcmd='tar zcf %s --exclude=.git ./' % fulltar
+            self.ret2 = commands.getstatusoutput(tarcmd)
+            if self.ret2 and not self.ret2[0]:
+                self.result.append(fulltar)
+            else:
+                self.result.append([])
+	else:
+	    self.result=[]
+        return  self.result
+
+    def record(self,cur_id=None):
+        if not cur_id:
+            os.chdir(dstpath)
+            cmd='git rev-parse HEAD'
+            ret=commands.getstatusoutput(cmd)
+            if ret and not ret[0]:
+                cur_id=ret[1]
+            else:
+                print 'Current cid  get failed'
+                f.write(ctime+'\tCurrent cid  get failed\n')
+                return 0
+        f.write('%s\tCurrent cid: %s\n' % (ctime, cur_id))
+        return 1
+    def diff(self,oldid,newid,bezip,dstpath):
+        os.chdir(dstpath)
+        incrcmd='git diff %s %s --name-only --diff-filter=AM|xargs zip %s' % (oldid,newid,bezip)
+        self.ret=commands.getstatusoutput(incrcmd)
+        if self.ret and not self.ret[0] and not 'fatal' in self.ret[1]:
+            self.result.append(bezip)
+        else:
+            self.result.append([])
+        os.chdir(dstpath)
+        dellist=[]
+        delcmd='git diff %s %s --name-only --diff-filter=D' % (oldid,newid)
+        self.ret2=commands.getstatusoutput(delcmd)
+        if self.ret2 and not self.ret2[0]:
+            for dpath in self.ret2[1].split('\n'):
+                dellist.append(dpath)
+            self.result.append(dellist)
+        else:
+            self.result.append([])
+        return self.result
+
+def sshSync(ip,user,zfile,dstpath,cmd):
+    ssh=paramiko.SSHClient()
+    paramiko.util.log_to_file('/tmp/paramiko.log')
+    #ssh.load_system_host_keys()
+    #pkey='/root/.ssh/id_rsa'
+    pkey='/home/icpublish/.ssh/id_rsa'
+    key = paramiko.RSAKey.from_private_key_file(pkey)
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(ip,68,user,pkey=key)
+    t=ssh.get_transport()
+    sftp=paramiko.SFTPClient.from_transport(t)
+    print zfile,dstpath
+    try:
+        sftp.put(zfile,dstpath)
+    except Exception as e:
+        print str(e)
+    stdin,stdout,stderr=ssh.exec_command(cmd)
+    res=stdout.readlines()
+    print res
+    if res:
+	if 'failed' in res:
+	    return 'failed'
+	else:
+    	    return res[-1].strip('\n').split('\t')[-1]
+    else:
+	return 'failed'
